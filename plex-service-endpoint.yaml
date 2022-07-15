@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex-svc
+spec:
+  type: LoadBalancer # This is what tells the system that we want an external IP
+  ports:
+    - protocol: TCP
+      port: 32400
+      targetPort: 32400
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: plex-svc
+subsets:
+  - addresses:
+    - ip: 192.168.0.250 #change this to your plex IP
+    ports:
+    - port: 32400
