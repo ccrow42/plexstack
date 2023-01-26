@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tautulli-deployment
+  labels:
+    app: tautulli
+spec:
+  replicas: 1
+  selector:
+     matchLabels:
+       app: tautulli
+  template:
+    metadata:
+      labels:
+        app: tautulli
+    spec:
+     containers:
+        - name: tautulli
+          image: ghcr.io/linuxserver/tautulli
+          env:
+            - name: PUID
+              value: "999"
+            - name: PGID
+              value: "999"
+            - name: TZ
+              value: "America/Los_Angeles"
+          ports:
+            - containerPort: 8181
+          volumeMounts:
+            - mountPath: /config
+              name: tautulli-config
+     volumes:
+       - name: tautulli-config
+         hostPath: 
+            path: /opt/plexstack/tautulli
+--
+kind: Service
+apiVersion: v1
+metadata:
+  name: tautulli-service
+spec:
+  selector:
+    app: tautulli
+  ports:
+  - protocol: TCP
+    port: 8181
+    targetPort: 8181
+  type: LoadBalancer
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: ingress-tautulli
+  namespace: plexstack
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+
+spec:
+  tls:
+    - hosts:
+        - tautulli.ccrow.org
+      secretName: tautulli-tls
+  rules:
+    - host: tautulli.ccrow.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tautulli-service
+                port:
+                  number: 8181
