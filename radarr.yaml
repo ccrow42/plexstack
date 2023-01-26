@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr-deployment
+  labels:
+    app: radarr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+    containers:
+        - name: radarr
+          image: ghcr.io/linuxserver/radarr
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "1000m"
+          env:
+            - name: PUID
+              value: "999"
+            - name: PGID
+              value: "999"
+          ports:
+            - containerPort: 7878
+          volumeMounts:
+            - mountPath: /config
+              name: radarr-config
+            - mountPath: /downloads
+              name: radarr-downloads
+            - mountPath: /movies
+              name: radarr-movies
+    volumes:
+      - name: radarr-config
+        persistentVolumeClaim:
+          path: /opt/plexstack/radarr
+      - name: radarr-downloads
+        hostPath:
+          path: /opt/plexstack/downloads
+      - name: radarr-movies
+        hostPath:
+          path: /opt/plexstack/movies
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: radarr-service
+spec:
+  selector:
+    app: radarr
+  ports:
+  - protocol: TCP
+    port: 7878
+    targetPort: 7878
+  type: LoadBalancer
+kind: Ingress
+---
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: ingress-radarr
+  namespace: plexstack
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned-cluster-issuer #use a self-signed cert!
+    kubernetes.io/ingress.class: nginx
+spec:
+  tls:
+    - hosts:
+        - radarr.ccrow.local #using a local DNS entry. Radarr should not be public!
+      secretName: radarr-tls
+  rules:
+    - host: radarr.ccrow.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: radarr-service
+                port:
+                  number: 8181
