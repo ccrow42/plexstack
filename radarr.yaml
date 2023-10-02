@@ -1,3 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: radarr-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -15,13 +26,9 @@ spec:
       labels:
         app: radarr
     spec:
-    containers:
+      containers:
         - name: radarr
           image: ghcr.io/linuxserver/radarr
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "1000m"
           env:
             - name: PUID
               value: "999"
@@ -36,16 +43,16 @@ spec:
               name: radarr-downloads
             - mountPath: /movies
               name: radarr-movies
-    volumes:
-      - name: radarr-config
-        persistentVolumeClaim:
-          path: /opt/plexstack/radarr
-      - name: radarr-downloads
-        hostPath:
-          path: /opt/plexstack/downloads
-      - name: radarr-movies
-        hostPath:
-          path: /opt/plexstack/movies
+      volumes:
+        - name: radarr-config
+          persistentVolumeClaim:
+            claimName: radarr-pvc
+        - name: radarr-downloads
+          hostPath:
+            path: /mnt/downloads
+        - name: radarr-movies
+          hostPath:
+            path: /mnt/movies
 ---
 kind: Service
 apiVersion: v1
@@ -59,12 +66,11 @@ spec:
     port: 7878
     targetPort: 7878
   type: LoadBalancer
-kind: Ingress
 ---
+kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
   name: ingress-radarr
-  namespace: plexstack
   annotations:
     cert-manager.io/cluster-issuer: selfsigned-cluster-issuer #use a self-signed cert!
     kubernetes.io/ingress.class: nginx
